@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paint the Music</title>
+<meta name="theme-color" content="#fdf4e6">
+<meta name="description" content="A visual instrument: draw on a grid and every stroke becomes a note. Runs entirely in the browser, with no account and nothing sent anywhere.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Paint the Music">
+<meta property="og:description" content="A visual instrument: you draw, it plays. In the browser, with no account and no data collection.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ====================== top bar ====================== -->
+  <header class="topbar card">
+    <div class="brand">
+      <svg class="blob" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" fill="#ff6fa5" stroke="#33291f" stroke-width="2"/>
+        <circle cx="21" cy="17" r="7.5" fill="#bfefe0" stroke="#33291f" stroke-width="2"/>
+        <circle cx="14" cy="22" r="6" fill="#ffe8a6" stroke="#33291f" stroke-width="2"/>
+        <circle cx="12" cy="11" r="1.6" fill="#33291f"/>
+        <circle cx="17" cy="12" r="1.6" fill="#33291f"/>
+      </svg>
+      <span class="brand-name"><span data-i18n="brand.a">Paint</span><small data-i18n="brand.b">the music</small></span>
+    </div>
+
+    <div class="tgroup">
+      <button id="rewind" class="icon-btn" data-i18n-title="t.rewind" title="Back to the start">
+        <svg viewBox="0 0 24 24"><path d="M7 6v12"/><path d="M19 6 9 12l10 6z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button id="play" class="play-btn" data-i18n-title="t.play" title="Play (Space)"></button>
+    </div>
+
+    <div class="tgroup">
+      <span class="lbl" data-i18n="lbl.tempo">Tempo</span>
+      <input id="bpm" type="range" min="40" max="240" step="1">
+      <input id="bpm-val" type="number" min="40" max="240">
+      <span class="unit">BPM</span>
+      <button id="tap" class="btn soft" data-i18n="btn.tap">Tap</button>
+      <select id="count-in" class="narrow" data-i18n-title="t.countin" title="Count-in before playing"></select>
+    </div>
+
+    <div class="tgroup">
+      <span class="lbl" data-i18n="lbl.pages">Pages</span>
+      <div id="pages" class="pages"></div>
+      <button id="dup-page" class="btn soft" data-i18n="btn.duplicate" data-i18n-title="t.duplicate"
+              title="Copy this page into the first free one">Duplicate</button>
+    </div>
+
+    <div class="tgroup">
+      <span class="lbl" data-i18n="lbl.song">Song</span>
+      <button id="song-on" class="btn" data-i18n="btn.chain" data-i18n-title="t.chain"
+              title="Play the arrangement instead of the single page">Chain</button>
+      <div id="song-row" class="song-row"></div>
+      <button id="song-add" class="icon-btn sm" data-i18n-title="t.songadd" title="Add a link">+</button>
+      <button id="song-del" class="icon-btn sm" data-i18n-title="t.songdel" title="Remove the last link">&minus;</button>
+      <button id="song-fill" class="btn soft tiny" data-i18n="btn.all" data-i18n-title="t.songfill"
+              title="Every non-empty page">All</button>
+    </div>
+
+    <div class="tgroup">
+      <span class="lbl" data-i18n="lbl.perform">Perform</span>
+      <button id="play-keys" class="btn" data-i18n="btn.keyboard" data-i18n-title="t.keyboard"
+              title="Play with the computer keyboard">Keyboard</button>
+      <button id="rec" class="btn rec" data-i18n-title="t.rec" title="Record what you play">&#9679; <span data-i18n="btn.rec">Rec</span></button>
+    </div>
+
+    <div class="tgroup push">
+      <button id="lang" class="btn soft tiny" data-i18n-title="lang.title" title="Passer en français">FR</button>
+      <button id="theme" class="icon-btn" data-i18n-title="t.theme" title="Light or dark theme">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>
+      </button>
+      <button id="zoom-out" class="icon-btn sm" data-i18n-title="t.zoomout" title="Zoom out (-)">&minus;</button>
+      <span id="zoom-val" class="zoom-val">100%</span>
+      <button id="zoom-in" class="icon-btn sm" data-i18n-title="t.zoomin" title="Zoom in (+)">+</button>
+      <button id="zoom-fit" class="btn soft tiny" data-i18n="btn.fit" data-i18n-title="t.fit"
+              title="Show everything (0)">Fit</button>
+      <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
+        <path d="M5 9v6h4l5 4V5L9 9z"/><path d="M17 9a4 4 0 0 1 0 6"/>
+      </svg>
+      <input id="volume" type="range" min="0" max="1" step="0.01" data-num="percent">
+    </div>
+  </header>
+
+  <!-- ====================== tool rail ====================== -->
+  <aside class="rail card">
+    <button id="tool-brush" class="icon-btn on" data-i18n-title="t.brush" title="Brush (B)">
+      <svg viewBox="0 0 24 24"><path d="M4 20c2.5.6 4.6-.4 5.4-2.3.6-1.5-.2-3-1.6-3.4-1.6-.5-3 .4-3.3 2C4.2 17.8 4.4 19 4 20z"/><path d="M11 14.5 20.2 5.3a1.8 1.8 0 0 0-2.5-2.5L8.5 12"/></svg>
+    </button>
+    <button id="tool-eraser" class="icon-btn" data-i18n-title="t.eraser" title="Eraser (E)">
+      <svg viewBox="0 0 24 24"><path d="M6 18h13"/><path d="m9.5 17.5-4-4a1.8 1.8 0 0 1 0-2.6l7-7a1.8 1.8 0 0 1 2.6 0l4 4a1.8 1.8 0 0 1 0 2.6l-7 7z"/></svg>
+    </button>
+    <button id="tool-select" class="icon-btn" data-i18n-title="t.select" title="Selection (S)">
+      <svg viewBox="0 0 24 24" stroke-dasharray="3.5 2.5"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+    </button>
+    <button id="tool-note" class="icon-btn" data-i18n-title="t.notetool"
+            title="Note: grab it, stretch it by the edges, move it (N)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="3"/><path d="M6.5 10v4M17.5 10v4"/></svg>
+    </button>
+
+    <div class="rail-sep"></div>
+
+    <button id="undo" class="icon-btn" data-i18n-title="t.undo" title="Undo (Ctrl+Z)">
+      <svg viewBox="0 0 24 24"><path d="M4 9h11a5 5 0 0 1 0 10h-5"/><path d="m8 5-4 4 4 4"/></svg>
+    </button>
+    <button id="redo" class="icon-btn" data-i18n-title="t.redo" title="Redo (Ctrl+Shift+Z)">
+      <svg viewBox="0 0 24 24"><path d="M20 9H9a5 5 0 0 0 0 10h5"/><path d="m16 5 4 4-4 4"/></svg>
+    </button>
+    <button id="shuffle" class="icon-btn" data-i18n-title="t.shuffle" title="Random pattern">
+      <svg viewBox="0 0 24 24"><path d="M4 7h3l4 10h5"/><path d="M4 17h3l4-10h5"/><path d="m17 4 3 3-3 3"/><path d="m17 14 3 3-3 3"/></svg>
+    </button>
+    <button id="clear" class="icon-btn" data-i18n-title="t.clear" title="Clear the page">
+      <svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M9 7V5h6v2"/><path d="M7 7l1 13h8l1-13"/></svg>
+    </button>
+    <button id="toggle-grid" class="icon-btn on" data-i18n-title="t.grid" title="Show the grid (G)">
+      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 10h16M4 15h16M10 4v16M15 4v16"/></svg>
+    </button>
+
+    <div class="rail-sep"></div>
+
+    <div id="palette" class="palette"></div>
+    <div id="voice-name" class="voice-name"></div>
+
+    <div class="sizes">
+      <button id="brush-1" class="size on" data-i18n-title="t.brush1" title="Fine brush"><i class="s1"></i></button>
+      <button id="brush-2" class="size" data-i18n-title="t.brush2" title="Medium brush"><i class="s2"></i></button>
+      <button id="brush-3" class="size" data-i18n-title="t.brush3" title="Wide brush"><i class="s3"></i></button>
+    </div>
+  </aside>
+
+  <!-- ====================== canvas ====================== -->
+  <main class="canvas-area">
+    <section id="stage" class="stage" tabindex="0" data-i18n-aria="a.stage"
+             aria-label="Canvas: arrow keys move the cursor, Enter places a note">
+      <div class="holder">
+        <canvas id="grid-bg" aria-hidden="true"></canvas>
+        <canvas id="grid"></canvas>
+      </div>
+      <div id="spacer" class="spacer"></div>
+    </section>
+
+    <!-- shown with the selection tool -->
+    <div id="selbar" class="selbar" hidden>
+      <span class="selbar-title" data-i18n="sel.title">Selection</span>
+      <button id="sel-all" class="btn tiny" data-i18n="sel.all" data-i18n-title="t.selall" title="Select everything (Ctrl+A)">All</button>
+      <button id="sel-none" class="btn tiny" data-i18n="sel.none" data-i18n-title="t.selnone" title="Deselect (Esc)">None</button>
+      <span class="sep"></span>
+      <button id="sel-cut" class="btn tiny sel-only" data-i18n="sel.cut" data-i18n-title="t.selcut" title="Cut (Ctrl+X)">Cut</button>
+      <button id="sel-copy" class="btn tiny sel-only" data-i18n="sel.copy" data-i18n-title="t.selcopy" title="Copy (Ctrl+C)">Copy</button>
+      <button id="sel-paste" class="btn tiny" data-i18n="sel.paste" data-i18n-title="t.selpaste" title="Paste (Ctrl+V)">Paste</button>
+      <button id="sel-del" class="btn tiny sel-only" data-i18n="sel.erase" data-i18n-title="t.selerase" title="Erase (Del)">Erase</button>
+      <span class="sep"></span>
+      <div class="nudge">
+        <button id="sel-up" class="icon-btn sm sel-only" data-i18n-title="t.selup" title="Up one degree">&uarr;</button>
+        <button id="sel-down" class="icon-btn sm sel-only" data-i18n-title="t.seldown" title="Down one degree">&darr;</button>
+        <button id="sel-left" class="icon-btn sm sel-only" data-i18n-title="t.selleft" title="Shift left">&larr;</button>
+        <button id="sel-right" class="icon-btn sm sel-only" data-i18n-title="t.selright" title="Shift right">&rarr;</button>
+      </div>
+      <button id="sel-oct-up" class="btn tiny sel-only" data-i18n-title="t.seloctup" title="Up one octave">Oct+</button>
+      <button id="sel-oct-down" class="btn tiny sel-only" data-i18n-title="t.seloctdown" title="Down one octave">Oct&minus;</button>
+      <button id="sel-x2" class="btn tiny sel-only" data-i18n-title="t.x2" title="Twice as long">&times;2</button>
+      <button id="sel-div2" class="btn tiny sel-only" data-i18n-title="t.div2" title="Twice as short">&divide;2</button>
+      <span class="sep"></span>
+      <select id="harm-offset" class="narrow" data-i18n-title="t.harmoffset" title="Harmonising interval"></select>
+      <button id="sel-harm" class="btn tiny" data-i18n="sel.harm" data-i18n-title="t.selharm" title="Add a parallel voice">Harmonise</button>
+      <button id="sel-human" class="btn tiny" data-i18n="sel.human" data-i18n-title="t.selhuman" title="Vary the dynamics slightly">Humanise</button>
+      <span class="sep"></span>
+      <span class="hint" data-i18n="sel.repeatlbl">Repeat</span>
+      <input id="rep-times" type="number" min="1" max="64" value="3" class="numbox"
+             data-i18n-title="t.reptimes" title="How many copies in a row">
+      <button id="sel-repeat" class="btn tiny sel-only" data-i18n="sel.repeat" data-i18n-title="t.selrepeat"
+              title="Copy the selection right after itself">Repeat</button>
+      <button id="sel-fill" class="btn tiny sel-only" data-i18n="sel.fill" data-i18n-title="t.selfill"
+              title="Repeat to the end of the page">Fill</button>
+      <span class="sep"></span>
+      <button id="sel-loop" class="btn tiny sel-only" data-i18n="sel.loop" data-i18n-title="t.selloop" title="Loop the selection">Loop</button>
+      <button id="loop-off" class="btn tiny" data-i18n="sel.loopoff" data-i18n-title="t.loopoff" title="Remove the loop">Loop off</button>
+    </div>
+
+    <!-- shown with the note tool -->
+    <div id="notebar" class="selbar notebar" hidden>
+      <span class="selbar-title" data-i18n="note.title">Note</span>
+      <span id="note-info" class="note-info">none — click a note</span>
+      <span class="sep"></span>
+      <span class="hint" data-i18n="note.length">Length</span>
+      <input id="note-len" type="number" min="1" max="128" class="numbox"
+             data-i18n-title="t.notelen" title="Exact length, in steps">
+      <span class="hint" data-i18n="note.steps">steps</span>
+      <button id="note-x2" class="btn tiny" data-i18n-title="t.x2" title="Twice as long">&times;2</button>
+      <button id="note-div2" class="btn tiny" data-i18n-title="t.div2" title="Twice as short">&divide;2</button>
+      <span class="sep"></span>
+      <button id="note-del" class="btn tiny danger" data-i18n="note.delete">Delete</button>
+    </div>
+  </main>
+
+  <!-- ====================== inspector ====================== -->
+  <aside class="inspector card">
+    <nav class="tabs">
+      <button class="tab on" data-tab="grid" data-i18n="tab.grid">Grid</button>
+      <button class="tab" data-tab="sound" data-i18n="tab.sound">Sound</button>
+      <button class="tab" data-tab="voice" data-i18n="tab.voice">Voice</button>
+      <button class="tab" data-tab="midi" data-i18n="tab.midi">MIDI</button>
+      <button class="tab" data-tab="project" data-i18n="tab.project">Project</button>
+    </nav>
+
+    <div class="tabpanes">
+
+      <!-- ---------- grid ---------- -->
+      <section class="tabpane on" data-pane="grid">
+        <div class="block pink">
+          <span class="block-title" data-i18n="f.key">Key</span>
+          <div id="key-selector" class="key-selector"></div>
+        </div>
+
+        <div class="row-field">
+          <label for="scale" data-i18n="f.scale">Scale</label>
+          <select id="scale"></select>
+          <button id="preserve" class="btn tiny on" data-i18n="f.preserve" data-i18n-title="t.preserve"
+                  title="When the scale changes, move the drawing to the nearest notes">Keep the pitches</button>
+        </div>
+
+        <div class="row-field">
+          <label for="range" data-i18n="f.range">Range</label>
+          <div class="inline">
+            <select id="range"></select>
+            <span class="hint" id="range-info"></span>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label data-i18n="f.octave">Octave</label>
+          <div class="stepper">
+            <button id="oct-down">&minus;</button>
+            <span id="oct-val">0</span>
+            <button id="oct-up">+</button>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label for="tune" data-i18n="f.tune">Fine tuning</label>
+          <div class="inline">
+            <input id="tune" type="range" min="-100" max="100" step="1" data-num="raw">
+            <span class="hint" id="tune-val" data-i18n="f.cents">cents</span>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label for="bars" data-i18n="f.length">Length</label>
+          <div class="inline">
+            <select id="bars"></select>
+            <span class="hint" id="grid-info"></span>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label for="quantize" data-i18n="f.division">Division</label>
+          <select id="quantize"></select>
+        </div>
+
+        <div class="row-field">
+          <label for="swing" data-i18n="f.swing">Swing</label>
+          <div class="inline">
+            <select id="swing"></select>
+            <span class="hint" id="swing-note"></span>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label for="chord-brush" data-i18n="f.chordbrush">Brush</label>
+          <select id="chord-brush" data-i18n-title="t.chordbrush" title="Add parallel notes under the brush"></select>
+        </div>
+
+        <div class="row-field">
+          <label for="names" data-i18n="f.names">Note names</label>
+          <select id="names"></select>
+        </div>
+
+        <div class="row-field">
+          <label for="note-mark" data-i18n="f.notemark">Mark on notes</label>
+          <select id="note-mark" data-i18n-title="t.notemark" title="Read the voices without relying on colour"></select>
+        </div>
+      </section>
+
+      <!-- ---------- sound ---------- -->
+      <section class="tabpane" data-pane="sound">
+        <div class="block mint">
+          <span class="block-title" data-i18n="f.dynamics">Dynamics</span>
+          <div class="inline">
+            <select id="vel-mode"></select>
+            <input id="vel-fixed" type="range" min="0.2" max="1" step="0.05" data-num="percent">
+          </div>
+          <div class="hint spaced" id="vel-note"></div>
+        </div>
+
+        <div class="row-field">
+          <label for="reverb" data-i18n="f.reverb">Reverb</label>
+          <input id="reverb" type="range" min="0" max="0.6" step="0.01" data-num="percent">
+        </div>
+
+        <div class="block sky">
+          <span class="block-title" data-i18n="f.echo">Echo</span>
+          <div class="row-field tight">
+            <label for="delay-amount" data-i18n="f.amount">Amount</label>
+            <input id="delay-amount" type="range" min="0" max="0.6" step="0.01" data-num="percent">
+          </div>
+          <div class="inline">
+            <select id="delay-time" class="narrow" data-i18n-title="t.delaytime" title="Length, locked to the tempo"></select>
+            <input id="delay-fb" type="range" min="0" max="0.8" step="0.02" class="mini"
+                   data-i18n-title="t.delayfb" title="Feedback" data-num="percent">
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label data-i18n="f.metronome">Metronome</label>
+          <button id="click" class="btn" data-i18n="btn.click">Click</button>
+        </div>
+      </section>
+
+      <!-- ---------- voice ---------- -->
+      <section class="tabpane" data-pane="voice">
+        <div class="block butter">
+          <span class="block-title" data-i18n="f.slot">Selected slot</span>
+          <div id="voice-title"></div>
+        </div>
+
+        <div class="row-field">
+          <label for="v-instrument" data-i18n="f.instrument">Instrument</label>
+          <select id="v-instrument" data-i18n-title="t.instrument" title="The sound this palette slot plays"></select>
+        </div>
+
+        <div class="row-field">
+          <label for="v-gain" data-i18n="f.volume">Volume</label>
+          <input id="v-gain" type="range" min="0" max="1.5" step="0.01" data-num="percent">
+        </div>
+        <div class="row-field">
+          <label for="v-pan" data-i18n="f.pan">Pan</label>
+          <input id="v-pan" type="range" min="-1" max="1" step="0.05" data-num="percent">
+        </div>
+        <div class="row-field">
+          <label for="v-decay" data-i18n="f.envelope">Envelope length</label>
+          <input id="v-decay" type="range" min="0.25" max="3" step="0.05" data-num="percent">
+        </div>
+        <div class="row-field">
+          <label data-i18n="f.octave">Octave</label>
+          <div class="stepper">
+            <button id="v-oct-down">&minus;</button>
+            <span id="v-oct">0</span>
+            <button id="v-oct-up">+</button>
+          </div>
+        </div>
+        <div class="row-field">
+          <label data-i18n="f.stroke">A stroke gives…</label>
+          <div class="inline">
+            <button id="v-art-held" class="btn tiny" data-i18n="btn.held" data-i18n-title="t.held" title="One held note">Held</button>
+            <button id="v-art-rep" class="btn tiny" data-i18n="btn.repeated" data-i18n-title="t.repeated" title="One attack per step">Repeated</button>
+          </div>
+        </div>
+        <button id="v-reset" class="btn soft tiny" data-i18n="btn.vreset">Reset this voice</button>
+      </section>
+
+      <!-- ---------- MIDI ---------- -->
+      <section class="tabpane" data-pane="midi">
+        <div class="row-field">
+          <label data-i18n="f.access">Access</label>
+          <div class="inline">
+            <button id="midi-enable" class="btn" data-i18n="btn.enable">Enable</button>
+            <span class="hint" id="midi-note"></span>
+          </div>
+        </div>
+        <div class="row-field">
+          <label for="midi-in" data-i18n="f.midiin">Input keyboard</label>
+          <select id="midi-in" class="narrow" disabled></select>
+        </div>
+        <div class="row-field">
+          <label for="midi-out" data-i18n="f.midiout">Output synth</label>
+          <select id="midi-out" class="narrow" disabled></select>
+        </div>
+        <div class="row-field">
+          <label data-i18n="f.dest">Where the sound goes</label>
+          <div class="inline">
+            <button id="midi-send" class="btn" data-i18n="btn.midisend" data-i18n-title="t.midisend"
+                    title="Send the notes to the external synth" disabled>MIDI out</button>
+            <button id="midi-local" class="btn on" data-i18n="btn.midilocal" data-i18n-title="t.midilocal"
+                    title="Also play through the built-in engine">Internal engine</button>
+          </div>
+        </div>
+        <p class="hint" data-i18n-html="midi.https">Web MIDI needs http://localhost: run <b>serve.cmd</b> if the button stays greyed out.</p>
+      </section>
+
+      <!-- ---------- project ---------- -->
+      <section class="tabpane" data-pane="project">
+        <div class="row-field">
+          <label for="proj-list" data-i18n="f.projects">Saved projects</label>
+          <select id="proj-list" class="narrow"></select>
+          <div class="inline">
+            <button id="proj-load" class="btn tiny" data-i18n="btn.open">Open</button>
+            <button id="proj-save" class="btn tiny" data-i18n="btn.save">Save</button>
+            <button id="proj-del" class="btn tiny danger" data-i18n="btn.delete">Delete</button>
+          </div>
+        </div>
+
+        <div class="row-field">
+          <label data-i18n="f.file">File</label>
+          <div class="inline">
+            <button id="proj-export" class="btn tiny" data-i18n="btn.export" data-i18n-title="t.export"
+                    title="Download a .json file">Export</button>
+            <button id="proj-import-btn" class="btn tiny" data-i18n="btn.import" data-i18n-title="t.import"
+                    title="Load a .json file">Import</button>
+            <input id="proj-import" type="file" accept="application/json,.json" hidden>
+          </div>
+        </div>
+
+        <div class="block peach">
+          <span class="block-title" data-i18n="f.restore">Restore points</span>
+          <p class="hint block-note" data-i18n="restore.hint">Taken automatically before anything that undo cannot put back.</p>
+          <select id="restore-list" class="narrow full"></select>
+          <div class="inline spaced">
+            <button id="restore-apply" class="btn tiny" data-i18n="btn.restoreapply">Go back to this point</button>
+            <button id="restore-clear" class="btn tiny danger" data-i18n="btn.restoreclear">Clear</button>
+          </div>
+        </div>
+
+        <div class="block about">
+          <span class="block-title" data-i18n="f.about">About</span>
+          <p class="hint block-note" data-i18n-html="about.1"></p>
+          <p class="hint block-note" data-i18n-html="about.2"></p>
+          <p class="hint" data-i18n="about.3"></p>
+        </div>
+
+        <div class="block lilac">
+          <span class="block-title" data-i18n="f.exportsound">Export the sound</span>
+          <div class="inline">
+            <button id="export-wav" class="btn tiny">WAV</button>
+            <button id="export-stems" class="btn tiny" data-i18n="btn.stems" data-i18n-title="t.stems"
+                    title="One WAV file per voice used">Stems</button>
+            <button id="export-midi" class="btn tiny">MIDI</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- ====================== status bar ====================== -->
+  <footer class="statusbar card">
+    <span class="note-chip" id="hover-note"></span>
+    <span class="keys" data-i18n-html="keys.line"></span>
+    <div id="restore-chip" class="restore-chip" hidden>
+      <span data-i18n="restore.chip">Restore point:</span> <b id="restore-chip-label"></b>
+      <button id="restore-chip-go" class="btn tiny" data-i18n="btn.goback">Go back</button>
+      <button id="restore-chip-hide" class="btn tiny ghosted" data-i18n="btn.close">Close</button>
+    </div>
+    <div id="oof" class="oof" hidden>
+      <span id="oof-count"></span> <span data-i18n="oof.suffix">out of frame</span>
+      <button id="oof-grow" class="btn tiny" data-i18n="btn.grow">Enlarge</button>
+      <button id="oof-prune" class="btn tiny danger" data-i18n="btn.prune">Delete</button>
+    </div>
+  </footer>
+</div>
+
+<script src="js/i18n.js"></script>
+<script src="js/scales.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/clock.js"></script>
+<script src="js/model.js"></script>
+<script src="js/midi.js"></script>
+<script src="js/restore.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
